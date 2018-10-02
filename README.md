@@ -1,5 +1,9 @@
 # match2addresses
 Sample comparison function to match email address and its authentication username
+
+**Memory leak code example**
+
+```
 //
 // Created by Oleksandr Iegorov on 10/2/18.
 //
@@ -29,6 +33,11 @@ int main(int argc, char *argv[]) {
 	free(address);
     }
 }
+```
+
+**Valgrind memory leak detection**
+
+```
 ==7935== Memcheck, a memory error detector
 ==7935== Copyright (C) 2002-2012, and GNU GPL'd, by Julian Seward et al.
 ==7935== Using Valgrind-3.8.1 and LibVEX; rerun with -h for copyright info
@@ -58,3 +67,4 @@ Argument 2 todd.email.org -> todd.email.org
 ==7935== 
 ==7935== For counts of detected and suppressed errors, rerun with: -v
 ==7935== ERROR SUMMARY: 1 errors from 1 contexts (suppressed: 8 from 6)
+```
