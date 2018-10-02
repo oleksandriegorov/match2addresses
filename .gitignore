@@ -70,3 +70,6 @@ missing
 src/.deps/
 src/Makefile
 src/Makefile.in
+*.tar.gz
+amcompareaddr-*
+src/compareaddr
