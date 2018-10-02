@@ -3,7 +3,7 @@
 //
 #include <stdio.h>
 #include <stdlib.h>
-int main(char *argv,int argc) {
+int main(int argc, char *argv[]) {
     printf("Hello World with %d of arguments!\n",argc);
 
 }
