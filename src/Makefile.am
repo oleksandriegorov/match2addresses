@@ -1,2 +1,2 @@
-bin_PROGRAMS = compare_addr
-hello_SOURCES = compare_addresses.c
+bin_PROGRAMS = compareaddr
+compareaddr_SOURCES = main.c
