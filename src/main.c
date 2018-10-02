@@ -24,5 +24,6 @@ int main(int argc, char *argv[]) {
             }
         }
         printf("Argument %d %s -> %s\n",i,argv[i],address);
+	free(address);
     }
 }
