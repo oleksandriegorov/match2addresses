@@ -5,4 +5,5 @@ AC_CONFIG_FILES([
  Makefile
  src/Makefile
 ])
+AC_CHECK_LIB(config)
 AC_OUTPUT
