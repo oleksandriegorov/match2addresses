@@ -4,6 +4,7 @@ AC_PROG_CC
 
 # Link against libconfig
 LIBS="$LIBS -lconfig"
+CPPFLAGS="$CPPFLAGS -I/usr/include"
 AC_CONFIG_FILES([
  Makefile
  src/Makefile

@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <libconfig.h>
 
 /* Do overlapping strcpy safely, by using memmove. */
 #define ol_strcpy(dst,src) memmove(dst,src,strlen(src)+1)
@@ -103,6 +102,9 @@ int main(int argc, char *argv[]) {
     char *replacetokens = "@%+\0";
     char *address = NULL;
     char *authuser,*envelopefromaddr,*headerfromaddr = NULL;
+    config_t cfg, *cf;
+    char *allowedaddresses = NULL;
+
     if (argc == 4) {
         printf("Hello World with %d of arguments!\n", argc);
         printf("See arguments:\n");
@@ -116,4 +118,5 @@ int main(int argc, char *argv[]) {
     else {
         usage();
     }
+
 }
