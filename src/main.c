@@ -79,9 +79,7 @@ static char *trim_header_address( char *addr ) {
     left = strchr( addr, '<' );
     if ( left != (char*) 0 )
 	{
-    printf("addr before left + 1 : %s\n",addr);
     addr = left + 1;
-    printf("addr before left + 1 : %s\n",addr);
 	right = strchr( addr, '>' );
 	if ( right != (char*) 0 )
 	    *right = '\0';
@@ -91,19 +89,26 @@ static char *trim_header_address( char *addr ) {
 }
 
 void usage(void) {
-    printf("Usage: <header from address> <envelope from address> <authenticated user address>\n"
-           "\"Naadam <info@naadam.co>\"  \"bounces+5960265-daf1-alex.yegorov=gmail.com@rsmail.naadam.co\" \"authenticated_user.naadam.co\"\n");
+    printf("Usage: <header from address> <envelope from address> <authenticated user address> <override list of explicitly allowed addresses>\n"
+           "\"Naadam <info@naadam.co>\"  \"bounces+5960265-daf1-alex.yegorov=gmail.com@rsmail.naadam.co\" \"authenticated_user.naadam.co\" \"someaddress@gmail.com,someaddress1@gmail.com\"\n");
 }
 
-
+struct senderemailaddrs {
+    char *authuser;
+    char *envelopeuser;
+    char *headeruser;
+    char *allowedusers;
+};
 
 int main(int argc, char *argv[]) {
     int i;
     char *replacetokens = "@%+\0";
     char *address = NULL;
-    char *authuser,*envelopefromaddr,*headerfromaddr = NULL;
+    struct senderemailaddrs originaladdrs,processedaddrs;
+//    char *authuser,*envelopefromaddr,*headerfromaddr,*overridelist = NULL;
+//    char *processed_authuser,*processed_envelopefromaddr,*headerfromaddr,*overridelist = NULL;
 
-    if (argc == 4) {
+    if (argc == 5) {
         printf("Hello World with %d of arguments!\n", argc);
         printf("See arguments:\n");
         // Start from 2-nd argument, thus i is set to 1
@@ -118,22 +123,38 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    envelopefromaddr=strndup(argv[2],strlen(argv[2]));
-    headerfromaddr=strndup(argv[1],strlen(argv[1]));
-    authuser=strndup(argv[3],strlen(argv[3]));
-    printf("%s %s %s\n",headerfromaddr,envelopefromaddr,authuser);
-    if (strcmp(envelopefromaddr,authuser) == 0) {
-        printf("Match 1 occured. We are fine\n");
+    originaladdrs.headeruser=strndup(argv[1],strlen(argv[1]));
+    originaladdrs.envelopeuser=strndup(argv[2],strlen(argv[2]));
+    originaladdrs.authuser=strndup(argv[3],strlen(argv[3]));
+    originaladdrs.allowedusers=strndup(argv[4],strlen(argv[4]));
+
+    // Process arguments to remove special symbols from them
+    processedaddrs.headeruser=trim_header_address(originaladdrs.headeruser);
+    processedaddrs.envelopeuser=strdup(trim_smtp_address(originaladdrs.envelopeuser));
+    processedaddrs.authuser=strndup(originaladdrs.authuser,strlen(originaladdrs.authuser));
+    processedaddrs.allowedusers=strndup(originaladdrs.allowedusers,strlen(originaladdrs.allowedusers));
+
+    // Convert email addresses to dotted notation
+    emailtousername(replacetokens, processedaddrs.headeruser);
+    emailtousername(replacetokens, processedaddrs.envelopeuser);
+
+    printf("%s %s\n",originaladdrs.envelopeuser,originaladdrs.allowedusers);
+    if (strcmp(processedaddrs.envelopeuser,processedaddrs.authuser) == 0) {
+        printf("Match 1 occurred : %s = %s\nWe are fine\n",processedaddrs.envelopeuser, processedaddrs.authuser);
     }
-    else if (strstr("emailaddress1@gmail.com,emailaddress2@gmail.com\0",envelopefromaddr)) {
-        printf("Match 2 occured. Still fine\n");
+    else if (strstr(originaladdrs.allowedusers,originaladdrs.envelopeuser)) {
+        printf("Match 2 occurred : %s is in %s\nStill fine\n",originaladdrs.envelopeuser,originaladdrs.allowedusers);
     }
     else {
-        printf("No Match occured - We are not fine with it\n");
+        printf("No Match occurred - We are not fine with it\n");
     }
 
-    free(envelopefromaddr);
-    free(headerfromaddr);
-    free(authuser);
+    free(originaladdrs.headeruser);
+    free(originaladdrs.envelopeuser);
+    free(originaladdrs.authuser);
+    free(originaladdrs.allowedusers);
+    free(processedaddrs.authuser);
+    free(processedaddrs.envelopeuser);
+    free(processedaddrs.allowedusers);
 
 }
