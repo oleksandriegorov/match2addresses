@@ -102,8 +102,6 @@ int main(int argc, char *argv[]) {
     char *replacetokens = "@%+\0";
     char *address = NULL;
     char *authuser,*envelopefromaddr,*headerfromaddr = NULL;
-    config_t cfg, *cf;
-    char *allowedaddresses = NULL;
 
     if (argc == 4) {
         printf("Hello World with %d of arguments!\n", argc);
@@ -111,12 +109,31 @@ int main(int argc, char *argv[]) {
         // Start from 2-nd argument, thus i is set to 1
         for (i = 1; i < argc; i++) {
             address = strndup(argv[i], strlen(argv[i]));
-            printf("Argument %d %s -> %s\n", i, argv[i], emailtousername(replacetokens, trim_header_address(address)));
+            //printf("Argument %d %s -> %s\n", i, argv[i], emailtousername(replacetokens, trim_header_address(address)));
             free(address);
         }
     }
     else {
         usage();
+        return 0;
     }
+
+    envelopefromaddr=strndup(argv[2],strlen(argv[2]));
+    headerfromaddr=strndup(argv[1],strlen(argv[1]));
+    authuser=strndup(argv[3],strlen(argv[3]));
+    printf("%s %s %s\n",headerfromaddr,envelopefromaddr,authuser);
+    if (strcmp(envelopefromaddr,authuser) == 0) {
+        printf("Match 1 occured. We are fine\n");
+    }
+    else if (strstr("emailaddress1@gmail.com,emailaddress2@gmail.com\0",envelopefromaddr)) {
+        printf("Match 2 occured. Still fine\n");
+    }
+    else {
+        printf("No Match occured - We are not fine with it\n");
+    }
+
+    free(envelopefromaddr);
+    free(headerfromaddr);
+    free(authuser);
 
 }

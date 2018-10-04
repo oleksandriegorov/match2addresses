@@ -1,3 +1,2 @@
-bin_PROGRAMS = compareaddr test_config
+bin_PROGRAMS = compareaddr
 compareaddr_SOURCES = main.c
-test_config_SOURCES = test_config.c
