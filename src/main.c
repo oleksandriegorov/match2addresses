@@ -14,7 +14,6 @@ static char *emailtousername(char *userdomaindelimiters, char *emailaddress) {
     char *tokenpointer = NULL;
     for(tokennumber=0;tokennumber<strlen(userdomaindelimiters);tokennumber++) {
         if(tokenpointer=strchr(emailaddress,userdomaindelimiters[tokennumber])) {
-            printf("Replacing %c in %s\n",userdomaindelimiters[tokennumber],emailaddress);
             *tokenpointer='.';
         }
     }
@@ -42,6 +41,8 @@ static char *trim_whitespace( char* addr ) {
 
 
 // This function is borrowed from sfcmilter
+// Reminder for my future self : this function returns a pointer to original string, so either before of
+// a double free or just strndup the result
 static char *trim_smtp_address( char* addr ) {
     int len;
 
@@ -58,6 +59,8 @@ static char *trim_smtp_address( char* addr ) {
 
 
 // This function is borrowed from sfcmilter
+// Reminder for my future self : this function returns a pointer to original string, so either before of
+// a double free or just strndup the result
 static char *trim_header_address( char *addr ) {
     char* left;
     char* right;
@@ -93,20 +96,14 @@ void usage(void) {
            "\"Naadam <info@naadam.co>\"  \"bounces+5960265-daf1-alex.yegorov=gmail.com@rsmail.naadam.co\" \"authenticated_user.naadam.co\" \"someaddress@gmail.com,someaddress1@gmail.com\"\n");
 }
 
-struct senderemailaddrs {
-    char *authuser;
-    char *envelopeuser;
-    char *headeruser;
-    char *allowedusers;
-};
-
 int main(int argc, char *argv[]) {
     int i;
     char *replacetokens = "@%+\0";
     char *address = NULL;
-    struct senderemailaddrs originaladdrs,processedaddrs;
-//    char *authuser,*envelopefromaddr,*headerfromaddr,*overridelist = NULL;
-//    char *processed_authuser,*processed_envelopefromaddr,*headerfromaddr,*overridelist = NULL;
+    char *EnvFromAddr=NULL, *EnvFromAddrTrim=NULL, *EnvFromAddrDotted = NULL;
+    char *HdrFromAddr=NULL, *HdrFromAddrTrim=NULL, *HdrFromAddrDotted = NULL;
+    char *AuthUsrAddr=NULL, *AuthUsrAddrDotted=NULL;
+    char *AllowedAddrList=NULL;
 
     if (argc == 5) {
         printf("Hello World with %d of arguments!\n", argc);
@@ -123,38 +120,62 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    originaladdrs.headeruser=strndup(argv[1],strlen(argv[1]));
-    originaladdrs.envelopeuser=strndup(argv[2],strlen(argv[2]));
-    originaladdrs.authuser=strndup(argv[3],strlen(argv[3]));
-    originaladdrs.allowedusers=strndup(argv[4],strlen(argv[4]));
+    // Get variables to work with
+    HdrFromAddr=strndup(argv[1],strlen(argv[1]));
+    EnvFromAddr=strndup(argv[2],strlen(argv[2]));
+    AuthUsrAddr=strndup(argv[3],strlen(argv[3]));
+    AllowedAddrList=strndup(argv[4],strlen(argv[4]));
 
     // Process arguments to remove special symbols from them
-    processedaddrs.headeruser=trim_header_address(originaladdrs.headeruser);
-    processedaddrs.envelopeuser=strdup(trim_smtp_address(originaladdrs.envelopeuser));
-    processedaddrs.authuser=strndup(originaladdrs.authuser,strlen(originaladdrs.authuser));
-    processedaddrs.allowedusers=strndup(originaladdrs.allowedusers,strlen(originaladdrs.allowedusers));
+    HdrFromAddrTrim=strdup(trim_header_address(HdrFromAddr)); // <-
+    EnvFromAddrTrim=strdup(trim_smtp_address(EnvFromAddr)); // <- cleaned envelope from address
+    // Header and envelope senders *SHOULD* match in order to continue
+    // Reason is we need to ensure that recipient is not deceived by sender address being different in
+    // header and envelope
+    if (
+            //Header and envelope sender are the same one to one
+            (strncmp(HdrFromAddrTrim,EnvFromAddrTrim,strlen(HdrFromAddrTrim)) == 0 ) &&
+            // and their sizes are the same as well: to avoid user@example.com and user@example.command match
+            (strlen(HdrFromAddrTrim) == strlen(EnvFromAddrTrim))
+    ){
+        //Makes sense to proceed further
 
-    // Convert email addresses to dotted notation
-    emailtousername(replacetokens, processedaddrs.headeruser);
-    emailtousername(replacetokens, processedaddrs.envelopeuser);
+        // Convert auth user address to dotted notation
+        AuthUsrAddrDotted = strndup(AuthUsrAddr, strlen(AuthUsrAddr));
+        emailtousername(replacetokens, AuthUsrAddrDotted);
 
-    printf("%s %s\n",originaladdrs.envelopeuser,originaladdrs.allowedusers);
-    if (strcmp(processedaddrs.envelopeuser,processedaddrs.authuser) == 0) {
-        printf("Match 1 occurred : %s = %s\nWe are fine\n",processedaddrs.envelopeuser, processedaddrs.authuser);
-    }
-    else if (strstr(originaladdrs.allowedusers,originaladdrs.envelopeuser)) {
-        printf("Match 2 occurred : %s is in %s\nStill fine\n",originaladdrs.envelopeuser,originaladdrs.allowedusers);
+        // Convert email address to dotted notation
+        EnvFromAddrDotted=strdup(EnvFromAddrTrim);
+        emailtousername(replacetokens, EnvFromAddrDotted); // <- this is cleaned envelope from in dotted format
+
+        // Comparing envelope sender address against conditions
+        if (
+                // Envelope sender and auth user are the same
+                (strncmp(EnvFromAddrDotted, AuthUsrAddrDotted,strlen(EnvFromAddrDotted)) == 0) &&
+                // and their sizes are the same
+                (strlen(EnvFromAddrDotted) == strlen(AuthUsrAddrDotted))
+        ){
+            printf("Match 1 occurred : %s = %s\nWe are fine\n", EnvFromAddrDotted, AuthUsrAddrDotted);
+        } else if (strstr(AllowedAddrList, EnvFromAddrTrim)) {
+            printf("Match 2 occurred : %s is in %s\nStill fine\n", EnvFromAddrTrim,
+                   AllowedAddrList);
+        } else {
+            printf("No Match occurred - We are not fine with it\n");
+        }
     }
     else {
-        printf("No Match occurred - We are not fine with it\n");
+        printf("Envelope and header from do not match\n");
     }
 
-    free(originaladdrs.headeruser);
-    free(originaladdrs.envelopeuser);
-    free(originaladdrs.authuser);
-    free(originaladdrs.allowedusers);
-    free(processedaddrs.authuser);
-    free(processedaddrs.envelopeuser);
-    free(processedaddrs.allowedusers);
+    //Set vars free
+    free(HdrFromAddr);
+    free(HdrFromAddrTrim);
+    free(HdrFromAddrDotted);
+    free(EnvFromAddr);
+    free(EnvFromAddrTrim);
+    free(EnvFromAddrDotted);
+    free(AuthUsrAddr);
+    free(AuthUsrAddrDotted);
+    free(AllowedAddrList);
 
 }
