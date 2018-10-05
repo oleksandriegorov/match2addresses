@@ -96,35 +96,20 @@ void usage(void) {
            "\"Naadam <info@naadam.co>\"  \"bounces+5960265-daf1-alex.yegorov=gmail.com@rsmail.naadam.co\" \"authenticated_user.naadam.co\" \"someaddress@gmail.com,someaddress1@gmail.com\"\n");
 }
 
-int main(int argc, char *argv[]) {
-    int i;
+/* HdrEnvFromAuthMatch returns following codes :
+ 2 - EnvFromAddr is in AllowedAddrList
+ 1 - EnvFromAddr and AuthUsrAddr match
+ 0 - none of clauses worked. Which should never happen.
+-1 - EnvFromAddr and HdrFromAddr matched, but EnvFromAddr did not match either AllowedAddrList or AuthUsrAddr
+-2 - EnvFromAddr and HdrFromAddr do not match
+ */
+int HdrEnvFromAuthMatch (char *HdrFromAddr, char *EnvFromAddr, char *AuthUsrAddr, char *AllowedAddrList) {
+    //Thinking about moving this variable to a define
     char *replacetokens = "@%+\0";
-    char *address = NULL;
-    char *EnvFromAddr=NULL, *EnvFromAddrTrim=NULL, *EnvFromAddrDotted = NULL;
-    char *HdrFromAddr=NULL, *HdrFromAddrTrim=NULL, *HdrFromAddrDotted = NULL;
-    char *AuthUsrAddr=NULL, *AuthUsrAddrDotted=NULL;
-    char *AllowedAddrList=NULL;
-
-    if (argc == 5) {
-        printf("Hello World with %d of arguments!\n", argc);
-        printf("See arguments:\n");
-        // Start from 2-nd argument, thus i is set to 1
-        for (i = 1; i < argc; i++) {
-            address = strndup(argv[i], strlen(argv[i]));
-            //printf("Argument %d %s -> %s\n", i, argv[i], emailtousername(replacetokens, trim_header_address(address)));
-            free(address);
-        }
-    }
-    else {
-        usage();
-        return 0;
-    }
-
-    // Get variables to work with
-    HdrFromAddr=strndup(argv[1],strlen(argv[1]));
-    EnvFromAddr=strndup(argv[2],strlen(argv[2]));
-    AuthUsrAddr=strndup(argv[3],strlen(argv[3]));
-    AllowedAddrList=strndup(argv[4],strlen(argv[4]));
+    char *EnvFromAddrTrim=NULL, *EnvFromAddrDotted = NULL;
+    char *HdrFromAddrTrim=NULL, *HdrFromAddrDotted = NULL;
+    char *AuthUsrAddrDotted=NULL;
+    int result = 0;
 
     // Process arguments to remove special symbols from them
     HdrFromAddrTrim=strdup(trim_header_address(HdrFromAddr)); // <-
@@ -155,27 +140,59 @@ int main(int argc, char *argv[]) {
                 // and their sizes are the same
                 (strlen(EnvFromAddrDotted) == strlen(AuthUsrAddrDotted))
         ){
-            printf("Match 1 occurred : %s = %s\nWe are fine\n", EnvFromAddrDotted, AuthUsrAddrDotted);
+            //printf("Match 1 occurred : %s = %s\nWe are fine\n", EnvFromAddrDotted, AuthUsrAddrDotted);
+            result = 1;
         } else if (strstr(AllowedAddrList, EnvFromAddrTrim)) {
-            printf("Match 2 occurred : %s is in %s\nStill fine\n", EnvFromAddrTrim,
-                   AllowedAddrList);
+            result = 2;
+            //printf("Match 2 occurred : %s is in %s\nStill fine\n", EnvFromAddrTrim, AllowedAddrList);
         } else {
-            printf("No Match occurred - We are not fine with it\n");
+            result = -1;
+            //printf("No Match occurred - We are not fine with it\n");
         }
     }
     else {
-        printf("Envelope and header from do not match\n");
+        result = -2;
+        //printf("Envelope and header from do not match\n");
     }
 
     //Set vars free
-    free(HdrFromAddr);
+    //free(HdrFromAddr);
     free(HdrFromAddrTrim);
     free(HdrFromAddrDotted);
-    free(EnvFromAddr);
+    //free(EnvFromAddr);
     free(EnvFromAddrTrim);
     free(EnvFromAddrDotted);
-    free(AuthUsrAddr);
+    //free(AuthUsrAddr);
     free(AuthUsrAddrDotted);
-    free(AllowedAddrList);
+    //free(AllowedAddrList);
+    return result;
+}
+
+int main(int argc, char *argv[]) {
+    int i;
+    char *replacetokens = "@%+\0";
+    char *address = NULL;
+    char *EnvFromAddr=NULL, *EnvFromAddrTrim=NULL, *EnvFromAddrDotted = NULL;
+    char *HdrFromAddr=NULL, *HdrFromAddrTrim=NULL, *HdrFromAddrDotted = NULL;
+    char *AuthUsrAddr=NULL, *AuthUsrAddrDotted=NULL;
+    char *AllowedAddrList=NULL;
+
+    if (argc == 5) {
+        printf("Hello World with %d of arguments!\n", argc);
+        printf("See arguments:\n");
+        // Start from 2-nd argument, thus i is set to 1
+        for (i = 1; i < argc; i++) {
+            address = strndup(argv[i], strlen(argv[i]));
+            //printf("Argument %d %s -> %s\n", i, argv[i], emailtousername(replacetokens, trim_header_address(address)));
+            free(address);
+        }
+    }
+    else {
+        usage();
+        return 0;
+    }
+
+    printf("Match result is %d\n",HdrEnvFromAuthMatch(argv[1],argv[2],argv[3],argv[4]));
+    return 0;
 
 }
