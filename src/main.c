@@ -8,8 +8,54 @@
 /* Do overlapping strcpy safely, by using memmove. */
 #define ol_strcpy(dst,src) memmove(dst,src,strlen(src)+1)
 
+void strlwr(char *s);
+char *emailtousername(char *userdomaindelimiters, char *emailaddress);
+char *trim_whitespace( char* addr );
+char *trim_smtp_address( char* addr );
+char *trim_header_address( char *addr );
+void usage(void);
+int HdrEnvFromAuthMatch (char *HdrFromAddr, char *EnvFromAddr, char *AuthUsrAddr, char *AllowedAddrList);
 
-static char *emailtousername(char *userdomaindelimiters, char *emailaddress) {
+int main(int argc, char *argv[]) {
+    int i;
+    char *replacetokens = "@%+\0";
+    char *address = NULL;
+    char *EnvFromAddr=NULL, *EnvFromAddrTrim=NULL, *EnvFromAddrDotted = NULL;
+    char *HdrFromAddr=NULL, *HdrFromAddrTrim=NULL, *HdrFromAddrDotted = NULL;
+    char *AuthUsrAddr=NULL, *AuthUsrAddrDotted=NULL;
+    char *AllowedAddrList=NULL;
+
+    if (argc == 5) {
+        printf("Hello World with %d of arguments!\n", argc);
+        printf("See arguments:\n");
+        // Start from 2-nd argument, thus i is set to 1
+        for (i = 1; i < argc; i++) {
+            address = strndup(argv[i], strlen(argv[i]));
+            //printf("Argument %d %s -> %s\n", i, argv[i], emailtousername(replacetokens, trim_header_address(address)));
+            free(address);
+        }
+    }
+    else {
+        usage();
+        return 0;
+    }
+
+    printf("Match result is %d\n",HdrEnvFromAuthMatch(argv[1],argv[2],argv[3],argv[4]));
+    return 0;
+
+}
+
+void strlwr(char *s) {
+    int i = 0;
+    while (s[i] != '\0') {
+        if (s[i] >= 'A' && s[i] <= 'Z') {
+            s[i] = s[i] + 32;
+        }
+        i++;
+    }
+}
+
+char *emailtousername(char *userdomaindelimiters, char *emailaddress) {
     int tokennumber;
     char *tokenpointer = NULL;
     for(tokennumber=0;tokennumber<strlen(userdomaindelimiters);tokennumber++) {
@@ -21,7 +67,7 @@ static char *emailtousername(char *userdomaindelimiters, char *emailaddress) {
 }
 
 // This function is borrowed from sfcmilter
-static char *trim_whitespace( char* addr ) {
+char *trim_whitespace( char* addr ) {
     int len;
 
     len = strlen( addr );
@@ -43,7 +89,7 @@ static char *trim_whitespace( char* addr ) {
 // This function is borrowed from sfcmilter
 // Reminder for my future self : this function returns a pointer to original string, so either before of
 // a double free or just strndup the result
-static char *trim_smtp_address( char* addr ) {
+char *trim_smtp_address( char* addr ) {
     int len;
 
     /* The milter API sometimes gives us strings with angle brackets. */
@@ -61,7 +107,7 @@ static char *trim_smtp_address( char* addr ) {
 // This function is borrowed from sfcmilter
 // Reminder for my future self : this function returns a pointer to original string, so either before of
 // a double free or just strndup the result
-static char *trim_header_address( char *addr ) {
+char *trim_header_address( char *addr ) {
     char* left;
     char* right;
 
@@ -109,11 +155,14 @@ int HdrEnvFromAuthMatch (char *HdrFromAddr, char *EnvFromAddr, char *AuthUsrAddr
     char *EnvFromAddrTrim=NULL, *EnvFromAddrDotted = NULL;
     char *HdrFromAddrTrim=NULL, *HdrFromAddrDotted = NULL;
     char *AuthUsrAddrDotted=NULL;
+    char *AllowedAddrListLwr=NULL;
     int result = 0;
 
     // Process arguments to remove special symbols from them
     HdrFromAddrTrim=strdup(trim_header_address(HdrFromAddr)); // <-
+    strlwr(HdrFromAddrTrim);
     EnvFromAddrTrim=strdup(trim_smtp_address(EnvFromAddr)); // <- cleaned envelope from address
+    strlwr(EnvFromAddrTrim);
     // Header and envelope senders *SHOULD* match in order to continue
     // Reason is we need to ensure that recipient is not deceived by sender address being different in
     // header and envelope
@@ -133,6 +182,9 @@ int HdrEnvFromAuthMatch (char *HdrFromAddr, char *EnvFromAddr, char *AuthUsrAddr
         EnvFromAddrDotted=strdup(EnvFromAddrTrim);
         emailtousername(replacetokens, EnvFromAddrDotted); // <- this is cleaned envelope from in dotted format
 
+        // Lowercase entire allowed addresses list
+        AllowedAddrListLwr=strndup(AllowedAddrList,strlen(AllowedAddrList));
+        strlwr(AllowedAddrListLwr);
         // Comparing envelope sender address against conditions
         if (
                 // Envelope sender and auth user are the same
@@ -142,7 +194,7 @@ int HdrEnvFromAuthMatch (char *HdrFromAddr, char *EnvFromAddr, char *AuthUsrAddr
         ){
             //printf("Match 1 occurred : %s = %s\nWe are fine\n", EnvFromAddrDotted, AuthUsrAddrDotted);
             result = 1;
-        } else if (strstr(AllowedAddrList, EnvFromAddrTrim)) {
+        } else if (strstr(AllowedAddrListLwr, EnvFromAddrTrim)) {
             result = 2;
             //printf("Match 2 occurred : %s is in %s\nStill fine\n", EnvFromAddrTrim, AllowedAddrList);
         } else {
@@ -165,34 +217,8 @@ int HdrEnvFromAuthMatch (char *HdrFromAddr, char *EnvFromAddr, char *AuthUsrAddr
     //free(AuthUsrAddr);
     free(AuthUsrAddrDotted);
     //free(AllowedAddrList);
+    free(AllowedAddrListLwr);
     return result;
 }
 
-int main(int argc, char *argv[]) {
-    int i;
-    char *replacetokens = "@%+\0";
-    char *address = NULL;
-    char *EnvFromAddr=NULL, *EnvFromAddrTrim=NULL, *EnvFromAddrDotted = NULL;
-    char *HdrFromAddr=NULL, *HdrFromAddrTrim=NULL, *HdrFromAddrDotted = NULL;
-    char *AuthUsrAddr=NULL, *AuthUsrAddrDotted=NULL;
-    char *AllowedAddrList=NULL;
 
-    if (argc == 5) {
-        printf("Hello World with %d of arguments!\n", argc);
-        printf("See arguments:\n");
-        // Start from 2-nd argument, thus i is set to 1
-        for (i = 1; i < argc; i++) {
-            address = strndup(argv[i], strlen(argv[i]));
-            //printf("Argument %d %s -> %s\n", i, argv[i], emailtousername(replacetokens, trim_header_address(address)));
-            free(address);
-        }
-    }
-    else {
-        usage();
-        return 0;
-    }
-
-    printf("Match result is %d\n",HdrEnvFromAuthMatch(argv[1],argv[2],argv[3],argv[4]));
-    return 0;
-
-}
